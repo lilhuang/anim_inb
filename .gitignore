@@ -7,8 +7,7 @@ DAIN_old
 scripts/logs
 RAFT
 datasets
-pips/generate_flows
-pips/suzanne_exr_test_images
+pips
 output_gifs
 wandb
 .vscode
