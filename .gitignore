@@ -1,0 +1,16 @@
+outputs
+checkpoints
+arXiv2020-RIFE
+DAIN
+AnimeInterp
+DAIN_old
+scripts/logs
+RAFT
+datasets
+pips/generate_flows
+pips/suzanne_exr_test_images
+output_gifs
+wandb
+.vscode
+env*
+**__pycache__
