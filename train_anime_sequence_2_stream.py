@@ -10,18 +10,12 @@ import torch.nn.functional as F
 import time
 import os
 import re
-import shutil
-import subprocess
-from math import log10
 import numpy as np
-import datetime
 from utils.config import Config
 from collections import OrderedDict
 import sys
 import cv2
 from utils.vis_flow import flow_to_color
-import json
-from tqdm import tqdm
 from piqa import PSNR, SSIM
 from torchmetrics.classification import BinaryPrecisionRecallCurve, BinaryAccuracy, \
                                         BinaryF1Score, BinaryRecall, BinaryPrecision, \
@@ -103,59 +97,6 @@ def save_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr,\
     np.save(test_loss_arr_path, test_loss_arr)
 
 
-
-def save_progress_gif(results_root, epoch, folder):
-    results_path = os.path.join(results_root, folder)
-    
-    gif_path_gt = os.path.join(results_path, "progress_gif_gt.gif")
-    gif_path_gen = os.path.join(results_path, "progress_gif_gen.gif")
-    gif_path_0 = os.path.join(results_path, "progress_gif_0_warp_from_inb.gif")
-    gif_path_2 = os.path.join(results_path, "progress_gif_2_warp_from_inb.gif")
-    
-    workingdir_gt = os.path.join(results_path, "working_gif_dir_gt")
-    workingdir_gen = os.path.join(results_path, "working_gif_dir_gen")
-    workingdir_0 = os.path.join(results_path, "working_gif_dir_0_warp")
-    workingdir_2 = os.path.join(results_path, "working_gif_dir_2_warp")
-    
-    if not os.path.exists(workingdir_gt):
-        os.mkdir(workingdir_gt)
-    if not os.path.exists(workingdir_gen):
-        os.mkdir(workingdir_gen)
-    if not os.path.exists(workingdir_2):
-        os.mkdir(workingdir_2)
-    if not os.path.exists(workingdir_0):
-        os.mkdir(workingdir_0)
-    
-    cur_epoch = os.path.join(results_path, "epoch_{:03d}".format(epoch))
-    if os.path.exists(cur_epoch):
-        frame1_gt_path = os.path.join(cur_epoch, "1_mask.png")
-        frame1_gen_path = os.path.join(cur_epoch, "1_est_mask.png")
-        frame0_warp_path = os.path.join(cur_epoch, "0_warp_from_inb.png")
-        frame2_warp_path = os.path.join(cur_epoch, "2_warp_from_inb.png")
-        trg_frame1_gt_path = os.path.join(workingdir_gt, "epoch_{:03d}".format(epoch//10)+".png")
-        trg_frame1_gen_path = os.path.join(workingdir_gen, "epoch_{:03d}".format(epoch//10)+".png")
-        trg_frame0_warp_path = os.path.join(workingdir_0, "epoch_{:03d}".format(epoch//10)+".png")
-        trg_frame2_warp_path = os.path.join(workingdir_2, "epoch_{:03d}".format(epoch//10)+".png")
-        shutil.copy(frame1_gt_path, trg_frame1_gt_path)
-        shutil.copy(frame1_gen_path, trg_frame1_gen_path)
-        shutil.copy(frame0_warp_path, trg_frame0_warp_path)
-        shutil.copy(frame2_warp_path, trg_frame2_warp_path)
-    
-    ########## I THINK THE PROBLEM IS IN THE FFMPEG COMMAND CHECK THIS!!!!!!!! ###################
-    bashCommand_gen_gif = "ffmpeg -y -f image2 -framerate 1 -i "+workingdir_gen+"/epoch_%003d.png "+gif_path_gen
-    bashCommand_gt_gif = "ffmpeg -y -f image2 -framerate 1 -i "+workingdir_gt+"/epoch_%003d.png "+gif_path_gt
-    bashCommand_0_gif = "ffmpeg -y -f image2 -framerate 1 -i "+workingdir_0+"/epoch_%003d.png "+gif_path_0
-    bashCommand_2_gif = "ffmpeg -y -f image2 -framerate 1 -i "+workingdir_2+"/epoch_%003d.png "+gif_path_2
-
-    subprocess.run(bashCommand_gen_gif, shell=True)
-    subprocess.run(bashCommand_gt_gif, shell=True)
-    subprocess.run(bashCommand_0_gif, shell=True)
-    subprocess.run(bashCommand_2_gif, shell=True)
-
-    bashCommand_hstack = "ffmpeg -y -i "+gif_path_gt+" -i "+gif_path_gen+" -i "+gif_path_0+" -i "+gif_path_2+" -filter_complex \"[0:v][1:v]hstack=inputs=2[top]; [2:v][3:v]hstack=inputs=2[bottom]; [top][bottom]vstack=inputs=2[v]\" -map \"[v]\" "+results_path+"/progress.gif"
-    subprocess.run(bashCommand_hstack, shell=True)
-
-
 def save_psnr_ssim_to_txt(config, cur_psnr, cur_ssim, cur_cham, cur_lpips, epoch):
     if not os.path.exists(config.metrics_dir):
         os.makedirs(config.metrics_dir)
@@ -189,29 +130,6 @@ def plot_roc_curve(config, cur_precs, cur_recalls, epoch):
     figpath = os.path.join(config.metrics_dir, "roc_curve_epoch"+str(epoch)+".png")
     plt.savefig(figpath)
     plt.clf()
-
-
-def backwarp(flow, image):
-    W = image.shape[3]
-    H = image.shape[2]
-    gridX, gridY = np.meshgrid(np.arange(W), np.arange(H))
-    gridX = torch.Tensor(gridX).unsqueeze(0).expand_as(flow[:,0,:,:]).float().cuda()
-    gridY = torch.Tensor(gridY).unsqueeze(0).expand_as(flow[:,1,:,:]).float().cuda()
-
-    x = gridX + flow[:,0,:,:]
-    y = gridY + flow[:,1,:,:]
-
-    x = 2*(x/W - 0.5)
-    y = 2*(y/H - 0.5)
-
-    grid = torch.stack((x, y), dim=3)
-
-    imgout = F.grid_sample(image, grid, mode="nearest")
-    # warped = F.grid_sample(image, grid, mode="nearest")
-    # both_0 = torch.bitwise_and(x==0, y==0)
-    # imgout = torch.where(both_0, warped, image)
-    
-    return imgout
 
 
 def training_loop(epoch, model, model_1, model_2, trainloader, \
@@ -259,13 +177,6 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
             F35 = flow_35.float().cuda().to(memory_format=torch.channels_last)
             F53 = flow_53.float().cuda().to(memory_format=torch.channels_last)
 
-        ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-        ###########################
-        ## Train with all-real batch
-        netD.zero_grad()
-        optimizerD.zero_grad()
-        # Format batch
         srcmask = masks[0].cuda().float().to(memory_format=torch.channels_last)
         ibmask = masks[1].cuda().float().to(memory_format=torch.channels_last)
         trgmask = masks[2].cuda().float().to(memory_format=torch.channels_last)
@@ -305,30 +216,6 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
             save_flow_to_img(F53.cpu(), os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53"), epoch)
             save_flow_to_img(F13_output.cpu(), os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F13_est"), epoch)
             save_flow_to_img(F53_output.cpu(), os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53_est"), epoch)
-
-        if config.discrim == "patch":
-            real_output1x1, real_output16x16, real_output70x70, real_output256x256 = netD(ibmask)
-            real_outputs = [real_output1x1, real_output16x16, real_output70x70, real_output256x256]
-            label_1x1 = torch.full(real_output1x1.shape, real_label, dtype=torch.float).cuda().to(memory_format=torch.channels_last)
-            label_16x16 = torch.full(real_output16x16.shape, real_label, dtype=torch.float).cuda().to(memory_format=torch.channels_last)
-            label_70x70 = torch.full(real_output70x70.shape, real_label, dtype=torch.float).cuda().to(memory_format=torch.channels_last)
-            label_256x256 = torch.full(real_output256x256.shape, real_label, dtype=torch.float).cuda().to(memory_format=torch.channels_last)
-            labels = [label_1x1, label_16x16, label_70x70, label_256x256]
-            errD_real = 0.
-            for i in range(len(labels)):
-                if i == 0:
-                    continue
-                errD_real += criterionD(real_outputs[i].to(memory_format=torch.channels_last), labels[i])
-        else:
-            real_output = netD(ibmask)
-            real_output = real_output.to(memory_format=torch.channels_last)
-            label = torch.full(real_output.shape, real_label, dtype=torch.float).cuda().to(memory_format=torch.channels_last)
-            errD_real = criterionD(real_output, label)
-        
-        errD_real.backward()
-
-        if epoch % 10 == 0:
-            # saves the input images in a folder
             srcmask_path = os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[0][0], index[0][0]+".png")
             trgmask_path = os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[-1][0], index[-1][0]+".png")
             save_mask_to_img(srcmask[0].cpu().detach().numpy(), srcmask_path)
@@ -340,102 +227,11 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
         outputs = outputs.to(memory_format=torch.channels_last)
         output_answer = torch.where(outputs > threshold, 1., 0.)
 
-        ## Train discriminator with all-fake batch
-        # Classify all fake batch with D
-        if config.discrim == "patch":
-            # fake_output1x1, fake_output16x16, fake_output70x70, fake_output256x256 = netD(output_answer.detach())
-            fake_output1x1, fake_output16x16, fake_output70x70, fake_output256x256 = netD(outputs.detach())
-            fake_outputs = [fake_output1x1, fake_output16x16, fake_output70x70, fake_output256x256]
-            errD_fake = 0.
-            for i in range(len(fake_outputs)):
-                if i == 0:
-                    continue
-                labels[i].fill_(fake_label)
-                errD_fake += criterionD(fake_outputs[i].to(memory_format=torch.channels_last), labels[i])
-        else:
-            label.fill_(fake_label)
-            # fake_output = netD(output_answer.detach())
-            fake_output = netD(outputs.detach())
-            fake_output = fake_output.to(memory_format=torch.channels_last)
-            # Calculate D's loss on the all-fake batch
-            errD_fake = criterionD(fake_output, label)
-            # Calculate the gradients for this batch, accumulated (summed) with previous gradients
-        errD_fake.backward()
-        # Compute error of D as sum over the fake and the real batches
-        errD = errD_real + errD_fake
-        # Update D
-        running_d_loss += errD.item()
-        optimizerD.step()
-
-        ############################
-        # (2) Update G network: maximize log(D(G(z)))
-        ###########################
         model.zero_grad()
         optimizer.zero_grad()
 
-        if config.discrim == "patch":
-            # fake_output_again1x1, fake_output_again16x16, \
-            #     fake_output_again70x70, fake_output_again256x256 = netD(output_answer)
-            fake_output_again1x1, fake_output_again16x16, \
-                fake_output_again70x70, fake_output_again256x256 = netD(outputs)
-            fake_outputs_again = [fake_output_again1x1, fake_output_again16x16, fake_output_again70x70, fake_output_again256x256]
-            
-            errG = 0.
-            for i in range(len(fake_outputs_again)):
-                if i == 0:
-                    continue
-                labels[i].fill_(real_label)
-                errG += criterionD(fake_outputs_again[i].to(memory_format=torch.channels_last), labels[i])
-        else:
-            label.fill_(real_label) # fake labels are real for generator cost
-            # fake_output_again = netD(output_answer)
-            fake_output_again = netD(outputs)
-            fake_output_again = fake_output_again.to(memory_format=torch.channels_last)
-            # Calculate G's loss based on this output
-            errG = criterionD(fake_output_again, label)
-
         # calculate loss(es)
-        loss = 0.0
-        if config.recon_loss:
-            if config.mask_loss:
-                loss += torch.mean(torch.mul(F.binary_cross_entropy_with_logits(outputs, ibmask), loss_weights))
-            elif config.l1_loss:
-                loss += torch.mean(torch.mul(F.l1_loss(outputs, ibmask, reduction='none'), loss_weights))
-            elif config.l2_loss:
-                loss += torch.mean(torch.mul(F.mse_loss(outputs, ibmask, reduction='none'), loss_weights))
-        if config.gan_loss:
-            loss += config.gan_weight*errG
-        if config.warp_loss and epoch > 10:
-            img1_from_inb = backwarp(0.5*F12i, outputs)
-            img2_from_inb = backwarp(0.5*F21i, outputs)
-
-            img1_from_inb_np = 255*(1 - img1_from_inb[0].cpu().detach().numpy())
-            img2_from_inb_np = 255*(1 - img2_from_inb[0].cpu().detach().numpy())
-            warp_output_img1 = os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[0][0]+"_warp_from_inb.png")
-            warp_output_img2 = os.path.join(config.train_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[-1][0]+"_warp_from_inb.png")
-
-            if epoch % 10 == 0:
-                print("writing warp output")
-                cv2.imwrite(warp_output_img1, np.transpose(img1_from_inb_np, (1, 2, 0)))
-                cv2.imwrite(warp_output_img2, np.transpose(img2_from_inb_np, (1, 2, 0)))
-
-            #weight bce loss by inverse distance from black pixel
-            num_bg_src = np.sum(np.where(srcmask.cpu().detach().numpy()==0, 1, 0))
-            num_fg_src = np.sum(np.where(srcmask.cpu().detach().numpy()==1, 1, 0))
-            p_bg_src = num_bg_src/(num_bg_src+num_fg_src)
-            loss_weights_src = (1-srcmask)*(2*p_bg_src - 1) + (1 - p_bg_src)
-
-            num_bg_trg = np.sum(np.where(trgmask.cpu().detach().numpy()==0, 1, 0))
-            num_fg_trg = np.sum(np.where(trgmask.cpu().detach().numpy()==1, 1, 0))
-            p_bg_trg = num_bg_trg/(num_bg_trg+num_fg_trg)
-            loss_weights_trg = (1-trgmask)*(2*p_bg_trg - 1) + (1 - p_bg_trg)
-
-            img1_from_inb_sig = torch.sigmoid(img1_from_inb)
-            img2_from_inb_sig = torch.sigmoid(img2_from_inb)
-            loss_img1 = F.binary_cross_entropy(img1_from_inb_sig, srcmask, weight=loss_weights_src)
-            loss_img2 = F.binary_cross_entropy(img2_from_inb_sig, trgmask, weight=loss_weights_trg)
-            loss += config.warp_weight*(loss_img1 + loss_img2)
-
+        loss = torch.mean(torch.mul(F.binary_cross_entropy_with_logits(outputs, ibmask), loss_weights))
         loss += loss_streams
         loss.backward()
         optimizer.step()
@@ -738,15 +534,14 @@ def main(config, args):
         in_channels=3,
         classes=2
     )
-    if config.stream_share:
-        model_2 = Unet(
-            encoder_name=config.stream_encoder_name,
-            encoder_weights=config.stream_encoder_weights,
-            encoder_depth=config.stream_encoder_depth,
-            decoder_channels=config.stream_decoder_channels,
-            in_channels=3,
-            classes=2
-        )
+    model_2 = Unet(
+        encoder_name=config.stream_encoder_name,
+        encoder_weights=config.stream_encoder_weights,
+        encoder_depth=config.stream_encoder_depth,
+        decoder_channels=config.stream_decoder_channels,
+        in_channels=3,
+        classes=2
+    )
     model = Unet(
         encoder_name=config.encoder_name,
         encoder_weights=config.encoder_weights,
@@ -770,25 +565,19 @@ def main(config, args):
             newdict2[name] = value
         model_1.load_state_dict(newdict2, strict=True)
 
-        if not config.stream_share: 
-            dict3 = torch.load(config.checkpoint_in_2)
-            newdict3 = OrderedDict()
-            for key, value in dict3.items():
-                name = key[7:]
-                newdict3[name] = value
-            model_2.load_state_dict(newdict3, strict=True)
-        else:
-            model_2.load_state_dict(newdict2, strict=True)
+        dict3 = torch.load(config.checkpoint_in_2)
+        newdict3 = OrderedDict()
+        for key, value in dict3.items():
+            name = key[7:]
+            newdict3[name] = value
+        model_2.load_state_dict(newdict3, strict=True)
     
     model = nn.DataParallel(model)
     model = model.cuda().to(memory_format=torch.channels_last)
     model_1 = nn.DataParallel(model_1)
     model_1 = model_1.cuda().to(memory_format=torch.channels_last)
-    # if stream_share:
     model_2 = nn.DataParallel(model_2)
     model_2 = model_2.cuda().to(memory_format=torch.channels_last)
-    # else:
-    #     model_2 = None
     optimizer = optim.Adam(model.parameters(), lr=config.lr, betas=(config.beta1, 0.999))
     scheduler = optim.lr_scheduler.SequentialLR(
                                             optimizer,
@@ -798,38 +587,13 @@ def main(config, args):
                                             ],
                                             milestones=[200],
                                         )
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.num_epochs-1)
     optimizer_1 = optim.Adam(model_1.parameters(), lr=config.lr_stream, betas=(config.beta1, 0.999))
     scheduler_1 = optim.lr_scheduler.CosineAnnealingLR(optimizer_1, T_max=config.num_epochs-1)
-    # if stream_share:
     optimizer_2 = optim.Adam(model_2.parameters(), lr=config.lr_stream, betas=(config.beta1, 0.999))
     scheduler_2 = optim.lr_scheduler.CosineAnnealingLR(optimizer_2, T_max=config.num_epochs-1)
-    # else:
-    #     optimizer_2 = None
-    #     scheduler_2 = None
-
-    # Create the Discriminator
-    if config.discrim == "patch":
-        netD = Discriminator_patch().cuda()
-    else:
-        netD = Discriminator_square().cuda()
-    netD = nn.DataParallel(netD)
-    netD = netD.cuda().to(memory_format=torch.channels_last)
-    netD.apply(dcgan_weights_init)
-    optimizerD = optim.Adam(netD.parameters(), lr = config.lr_d, betas=(config.beta1, 0.999))
-    criterionD = nn.BCEWithLogitsLoss()
 
     print('Everything prepared. Ready to train...')
     sys.stdout.flush()
-
-    epoch_arr = []
-    loss_arr = []
-    loss_d_arr = []
-    loss_1_arr = []
-    loss_2_arr = []
-
-    test_epoch_arr = []
-    test_loss_arr = []
 
     if config.checkpoint_in != None:
         epoch_arr = np.load(os.path.join(config.metrics_dir, "epoch_arr.npy"))
@@ -842,12 +606,19 @@ def main(config, args):
         test_epoch_arr = list(test_epoch_arr)
         test_loss_arr = np.load(os.path.join(config.metrics_dir, "test_loss_arr.npy"))
         test_loss_arr = list(test_loss_arr)
+    else:
+        epoch_arr = []
+        loss_arr = []
+        loss_d_arr = []
+        loss_1_arr = []
+        loss_2_arr = []
+
+        test_epoch_arr = []
+        test_loss_arr = []
 
     for epoch in range(config.cur_epoch, config.num_epochs):
         print("######### EPOCH", epoch, "##########")
         epoch_arr.append(epoch)
-        print("ilu yoongi")
-
         loss_arr, \
             loss_d_arr, \
             loss_1_arr, \
@@ -904,11 +675,6 @@ if __name__ == "__main__":
     # loading configures
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
-    #these are just for raft flow things
-    parser.add_argument('--model', help="restore checkpoint")
-    parser.add_argument('--small', action='store_true', help='use small model')
-    parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
-    parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
     args = parser.parse_args()
     config = Config.from_file(args.config)
 
