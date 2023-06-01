@@ -20,7 +20,7 @@ def plot():
     # ours_recall_path = os.path.join(root, ours_root, "recall_arr_epoch_90.npy")
     ours_recall_path = os.path.join(root, ours_root, "recall_arr_epoch_40.npy")
     # ours_prec_path = os.path.join(root, ours_root, "prec_arr_epoch_90.npy")
-    ours_prec_path = os.path.join(root, ours_root, "prec_arr_epoch_40.npy")
+    ours_prec_path = os.path.join(root, ours_root, "prec_arr_epoch_4d0.npy")
 
     rife_recall = lumpy.mean(lumpy.load(rife_recall_path), axis=0)
     rife_prec = lumpy.mean(lumpy.load(rife_prec_path), axis=0)
