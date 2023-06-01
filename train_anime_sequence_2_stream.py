@@ -56,28 +56,32 @@ def save_mask_to_img(mask, name):
     cv2.imwrite(name, (1 - mask)*255)
 
 
-def plot_loss(config, epoch_arr, loss_arr, loss_d_arr, \
-                loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr):
+def plot_loss(config, epoch_arr, loss_arr, loss_1_arr, loss_2_arr, \
+                test_epoch_arr, test_loss_arr, test_loss_1_arr, \
+                test_loss_2_arr):
     if not os.path.exists(config.metrics_dir):
         os.makedirs(config.metrics_dir)
     
-    fig, axs = plt.subplots(3)
-    axs[0].set_title('gen/disc (b/g)')
-    axs[0].plot(epoch_arr, loss_arr, 'blue')
-    axs[0].plot(epoch_arr, loss_d_arr, 'green')
-    axs[1].set_title('1/2 (r/p)')
-    axs[1].plot(epoch_arr, loss_1_arr, 'red')
-    axs[1].plot(epoch_arr, loss_2_arr, 'purple')
-    axs[2].set_title('test')
-    axs[2].plot(test_epoch_arr, test_loss_arr, 'orange')
+    fig, axs = plt.subplots(2, 2)
+    axs[0,0].set_title('generator training loss')
+    axs[0,0].plot(epoch_arr, loss_arr, 'blue')
+    axs[0,1].set_title('streams 1/2 training loss (red/purple)')
+    axs[0,1].plot(epoch_arr, loss_1_arr, 'red')
+    axs[0.1].plot(epoch_arr, loss_2_arr, 'purple')
+    axs[1,0].set_title('generator test loss')
+    axs[1,0].plot(test_epoch_arr, test_loss_arr, 'blue')
+    axs[1,1].set_title('streams 1/2 test loss (red/purple)')
+    axs[1,1].plot(epoch_arr, test_loss_1_arr, 'red')
+    axs[1.1].plot(epoch_arr, test_loss_2_arr, 'purple')
 
     filename = os.path.join(config.metrics_dir, config.loss_img_path)
     plt.savefig(filename)
     plt.close('all')
 
 
-def save_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr,\
-                        loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr):
+def save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr,\
+                        loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr, \
+                        test_loss_1_arr, test_loss_2_arr):
     if not os.path.exists(config.metrics_dir):
         os.makedirs(config.metrics_dir)
     epoch_arr_path = os.path.join(config.metrics_dir, "epoch_arr.npy")
@@ -95,21 +99,24 @@ def save_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr,\
     np.save(test_epoch_arr_path, test_epoch_arr)
     test_loss_arr_path = os.path.join(config.metrics_dir, "test_loss_arr.npy")
     np.save(test_loss_arr_path, test_loss_arr)
+    test_loss_1_arr_path = os.path.join(config.metrics_dir, "test_loss_1_arr.npy")
+    np.save(test_loss_1_arr_path, test_loss_1_arr)
+    test_loss_2_arr_path = os.path.join(config.metrics_dir, "test_loss_2_arr.npy")
+    np.save(test_loss_2_arr_path, test_loss_2_arr)
 
 
-def save_psnr_ssim_to_txt(config, cur_psnr, cur_ssim, cur_cham, cur_lpips, epoch):
+def save_all_metrics_to_txt_and_npy(config, cur_psnr, cur_ssim, cur_cham, cur_lpips, \
+                                cur_auroc, cur_accs, cur_precs, cur_recalls, cur_f1s, epoch):
     if not os.path.exists(config.metrics_dir):
         os.makedirs(config.metrics_dir)
     textpath = os.path.join(config.metrics_dir, "psnr_ssim_epoch_"+str(epoch)+".txt")
     with open(textpath, 'w') as f:
-        f.write("psnr "+str(cur_psnr)+" ssim "+str(cur_ssim)+" cham "+str(cur_cham)+" lpips "+str(cur_lpips))
-
-
-def save_classification_metrics_to_txt(config, cur_auroc, cur_accs, cur_precs, cur_recalls, cur_f1s, epoch):
-    if not os.path.exists(config.metrics_dir):
-        os.makedirs(config.metrics_dir)
-    textpath = os.path.join(config.metrics_dir, "classification_metrics_epoch_"+str(epoch)+".txt")
-    with open(textpath, 'w') as f:
+        f.write("~~~~~~~~~~ PERCEPTUAL ~~~~~~~~~~~~~~\n")
+        f.write("psnr "+str(cur_psnr)+"\n")
+        f.write("ssim "+str(cur_ssim)+"\n")
+        f.write("cham "+str(cur_cham)+"\n")
+        f.write("lpips "+str(cur_lpips)+"\n")
+        f.write("~~~~~~~~~~~ CLASSIFICATION ~~~~~~~~~~~~~~\n")
         f.write("auroc "+str(cur_auroc)+"\n")
         f.write("accuracy "+str(cur_accs)+"\n")
         f.write("precision "+str(cur_precs)+"\n")
@@ -141,12 +148,8 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
     #  start training...
     model.train()
     running_loss = 0.0
-    running_d_loss = 0.0
     running_1_loss = 0.0
     running_2_loss = 0.0
-
-    real_label = 1.
-    fake_label = 0.
 
     threshold = 0.5
 
@@ -163,12 +166,7 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
 
         #get flow
         if config.flow_type != None:
-            flow_15 = flow[0][0]
-            flow_51 = flow[0][1]
-            flow_13 = flow[0][2]
-            flow_31 = flow[0][3]
-            flow_35 = flow[0][4]
-            flow_53 = flow[0][5]
+            flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
 
             F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
             F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
@@ -193,10 +191,7 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
         input_cat_2 = torch.cat([trgmask, F51], 1).to(memory_format=torch.channels_last)
 
         F13_output, decoder_output_1 = model_1(input_cat_1)
-        if model_2 != None:
-            F53_output, decoder_output_2 = model_2(input_cat_2)
-        else:
-            F53_output, decoder_output_2 = model_1(input_cat_2)
+        F53_output, decoder_output_2 = model_2(input_cat_2)
 
         decoder_output_1 = decoder_output_1.to(memory_format=torch.channels_last)
         decoder_output_2 = decoder_output_2.to(memory_format=torch.channels_last)
@@ -270,17 +265,19 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
     loss_1_arr.append(cur_1_loss)
     loss_2_arr.append(cur_2_loss)
 
-    return loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, model, model_1, model_2
+    return loss_arr, loss_d_arr, loss_1_arr, loss_2_arr
 
 
 def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
-                    to_img, test_loss_arr):    
+                    to_img, test_loss_arr, test_loss_1_arr, test_loss_2_arr):    
     default_threshold = 0.5
     thresholds_1 = np.arange(10)*0.1
     thresholds_2 = (np.arange(10)*0.01)+0.9
     thresholds = np.concatenate((thresholds_1, thresholds_2))
     
     running_loss = 0.0
+    running_1_loss = 0.0
+    running_2_loss = 0.0
     running_psnr = 0.0
     running_ssim = 0.0
     running_cham = 0.0
@@ -310,12 +307,7 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
                 sample, rgb_sample, folder, index, masks, flow = validationData
 
             if config.flow_type != None:
-                flow_15 = flow[0][0]
-                flow_51 = flow[0][1]
-                flow_13 = flow[0][2]
-                flow_31 = flow[0][3]
-                flow_35 = flow[0][4]
-                flow_53 = flow[0][5]
+                flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
 
                 F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
                 F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
@@ -346,6 +338,9 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
             decoder_output_1 = decoder_output_1.to(memory_format=torch.channels_last)
             decoder_output_2 = decoder_output_2.to(memory_format=torch.channels_last)
 
+            loss_13 = F.mse_loss(F13_output, F13)
+            loss_53 = F.mse_loss(F53_output, F53)
+
             outpath = os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[0][0])
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
@@ -370,6 +365,8 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
 
             loss = torch.mean(torch.mul(F.binary_cross_entropy_with_logits(outputs, ibmask), loss_weights))
             running_loss += loss.detach().item()
+            running_1_loss += loss_13.item()
+            running_2_loss += loss_53.item()
             running_psnr += psnr(output_answer.detach(), ibmask.detach())
             running_ssim += ssim(output_answer.detach(), ibmask.detach())
             running_cham += chamfer_distance(output_answer.detach()[0], ibmask.detach()[0])[0].detach().cpu().item()
@@ -398,23 +395,9 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
             save_mask_to_img(target_np[0], input_outfile)
             save_mask_to_img(output_not_binarized_np[0], output_grayscale_outfile)
 
-            if config.warp_loss and epoch > 10:
-                img1_from_inb = backwarp(0.5*F12i, output_answer)
-                img2_from_inb = backwarp(0.5*F21i, output_answer)
-                # img1_from_inb = torch.cat((img1_from_inb, img1_from_inb, img1_from_inb), dim=1)
-                # img2_from_inb = torch.cat((img2_from_inb, img2_from_inb, img2_from_inb), dim=1)
-
-                img1_from_inb_np = 255*(1 - img1_from_inb[0].cpu().detach().numpy())
-                img2_from_inb_np = 255*(1 - img2_from_inb[0].cpu().detach().numpy())
-                warp_output_img1 = os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[0][0]+"_warp_from_inb.png")
-                warp_output_img2 = os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[-1][0]+"_warp_from_inb.png")
-
-                print("writing test warp output")
-                cv2.imwrite(warp_output_img1, np.transpose(img1_from_inb_np, (1, 2, 0)))
-                cv2.imwrite(warp_output_img2, np.transpose(img2_from_inb_np, (1, 2, 0)))
-                # save_progress_gif(config.test_store_path, epoch, folder[1][0])
-
         cur_loss = running_loss / len(testloader)
+        cur_1_loss = running_1_loss / len(testloader)
+        cur_2_loss = running_2_loss / len(testloader)
         cur_psnr = running_psnr / len(testloader)
         cur_ssim = running_ssim / len(testloader)
         cur_cham = running_cham / len(testloader)
@@ -428,9 +411,12 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
 
         print("epoch", epoch, "loss", cur_loss)
         test_loss_arr.append(cur_loss)
+        test_loss_1_arr.append(cur_1_loss)
+        test_loss_2_arr.append(cur_2_loss)
 
-    return test_loss_arr, cur_psnr, cur_ssim, cur_cham, cur_lpips, cur_auroc, \
-            cur_accs, cur_precs, cur_recalls, cur_f1s, model, model_1, model_2
+    return test_loss_arr, test_loss_1_arr, test_loss_2_arr, cur_psnr, \
+            cur_ssim, cur_cham, cur_lpips, cur_auroc, \
+            cur_accs, cur_precs, cur_recalls, cur_f1s
 
 
 
@@ -615,6 +601,8 @@ def main(config, args):
 
         test_epoch_arr = []
         test_loss_arr = []
+        test_loss_1_arr = []
+        test_loss_2_arr = []
 
     for epoch in range(config.cur_epoch, config.num_epochs):
         print("######### EPOCH", epoch, "##########")
@@ -635,6 +623,8 @@ def main(config, args):
         if epoch % 10 == 0:
             test_epoch_arr.append(epoch)
             test_loss_arr, \
+                test_loss_1_arr, \
+                test_loss_2_arr, \
                 cur_psnr, \
                 cur_ssim, \
                 cur_cham, \
@@ -648,10 +638,10 @@ def main(config, args):
                 model_1, \
                 model_2 = testing_loop(epoch, model, model_1, \
                                         model_2, testloader, testset, config, \
-                                        to_img, test_loss_arr)
-            save_psnr_ssim_to_txt(config, cur_psnr, cur_ssim, cur_cham, cur_lpips, epoch)
-            save_classification_metrics_to_txt(config, cur_auroc, cur_accs, cur_precs, \
-                                                cur_recalls, cur_f1s, epoch)
+                                        to_img, test_loss_arr, test_loss_1_arr, \
+                                        test_loss_2_arr)
+            save_psnr_ssim_to_txt(config, cur_psnr, cur_ssim, cur_cham, cur_lpips, \
+                                cur_auroc, cur_accs, cur_precs, cur_recalls, cur_f1s, epoch)
             plot_roc_curve(config, cur_precs, cur_recalls, epoch)
 
             if not os.path.exists(config.checkpoint_latest_dir):
@@ -663,9 +653,10 @@ def main(config, args):
             torch.save(model_1.state_dict(), checkpoint_path_1)
             torch.save(model_2.state_dict(), checkpoint_path_2)
         
-        # plot_loss(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr)
-        # save_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, \
-        #                     test_epoch_arr, test_loss_arr)
+        plot_loss(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr, \
+                    test_loss_1_arr, test_loss_2_arr)
+        save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, \
+                                    test_epoch_arr, test_loss_arr, test_loss_1_arr, test_loss_2_arr)
         
     return loss_arr, loss_d_arr
 
