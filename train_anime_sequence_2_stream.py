@@ -610,10 +610,7 @@ def main(config, args):
         loss_arr, \
             loss_d_arr, \
             loss_1_arr, \
-            loss_2_arr, \
-            model, \
-            model_1, \
-            model_2 = training_loop(epoch, model, model_1, \
+            loss_2_arr = training_loop(epoch, model, model_1, \
                                     model_2, trainloader, trainset,\
                                     optimizer, optimizer_1, optimizer_2,\
                                     scheduler, scheduler_1, scheduler_2, \
@@ -633,10 +630,7 @@ def main(config, args):
                 cur_accs, \
                 cur_precs, \
                 cur_recalls, \
-                cur_f1s, \
-                model, \
-                model_1, \
-                model_2 = testing_loop(epoch, model, model_1, \
+                cur_f1s = testing_loop(epoch, model, model_1, \
                                         model_2, testloader, testset, config, \
                                         to_img, test_loss_arr, test_loss_1_arr, \
                                         test_loss_2_arr)
