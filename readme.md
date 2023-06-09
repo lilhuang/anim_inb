@@ -4,53 +4,40 @@ To run out-of-the-box, make sure your image data is in the following format:
 
 ```
 [Image data root directory]
-    |
-    ------train
-    |       |
-    |       ------triplet1
-    |       |       |
-    |       |       ------frame_0.png
-    |       |       ------frame_1.png
-    |       |       ------frame_2.png
-    |       ------triplet2
-    |       |       |
-    |       |       ------frame_0.png
-    |       |       ------frame_1.png
-    |       |       ------frame_2.png
-    |       ...       ...
-    |       
-    |
-    -------test
-            |
-            ------triplet1
-            |       |
-            |       ------frame_0.png
-            |       ------frame_1.png
-            |       ------frame_2.png
-            ------triplet2
-            |       |
-            |       ------frame_0.png
-            |       ------frame_1.png
-            |       ------frame_2.png
-            ...       ...
+├── test
+│   ├── triplet1
+│   │         ├── frame_0.png
+│   │         ├── frame_1.png
+│   │         ├── frame_2.png
+│   ├── triplet2
+│   │         ├── frame_0.png
+│   │         ├── frame_1.png
+│   │         ├── frame_2.png
+│   ...       ...
+└── train
+    ├── triplet1
+    │         ├── frame_0.png
+    │         ├── frame_1.png
+    │         ├── frame_2.png
+    ├── triplet2
+    │         ├── frame_0.png
+    │         ├── frame_1.png
+    │         ├── frame_2.png
+    ...       ...
 ```
 
 Then, make sure the flow data is in the following format:
 
 ```
 [Flow data root directory]
-    |
-    ------train
-    |       |
-    |       ------triplet1.npz
-    |       ------triplet2.npz
-    |       ...
-    |       
-    -------test
-            |
-            ------triplet1.npz
-            ------triplet2.npz
-            ...
+├── test
+│   ├── triplet1.npz
+│   ├── triplet2.npz
+    ...
+└── train
+    ├── triplet1.npz
+    ├── triplet2.npz
+    ...
 ```
 
 The name of each .npz file should be the same as the names of each triplet subdirectory. In addition, each .npz file should have 6 arrays stored in them with the names "02", "20", "01", "10", "12", "21", where the array called "02" indicates the flow from frame_0 to frame_2 in the corresponding triplet directory, the array called "01" indicates the flow from frame_0 to frame_1, and so on.

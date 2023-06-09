@@ -1,12 +1,8 @@
 outputs
+datasets
 checkpoints
-arXiv2020-RIFE
-DAIN
-AnimeInterp
-DAIN_old
 scripts/logs
 RAFT
-datasets
 pips
 output_gifs
 wandb
