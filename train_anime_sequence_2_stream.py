@@ -79,17 +79,14 @@ def plot_loss(config, epoch_arr, loss_arr, loss_1_arr, loss_2_arr, \
     plt.close('all')
 
 
-def save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr,\
-                        loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr, \
-                        test_loss_1_arr, test_loss_2_arr):
+def save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_1_arr, loss_2_arr, \
+                        test_epoch_arr, test_loss_arr, test_loss_1_arr, test_loss_2_arr):
     if not os.path.exists(config.metrics_dir):
         os.makedirs(config.metrics_dir)
     epoch_arr_path = os.path.join(config.metrics_dir, "epoch_arr.npy")
     np.save(epoch_arr_path, epoch_arr)
     loss_arr_path = os.path.join(config.metrics_dir, "loss_arr.npy")
     np.save(loss_arr_path, loss_arr)
-    loss_arr_path = os.path.join(config.metrics_dir, "loss_d_arr.npy")
-    np.save(loss_arr_path, loss_d_arr)
     loss_1_path = os.path.join(config.metrics_dir, "loss_1_arr.npy")
     np.save(loss_arr_path, loss_1_arr)
     loss_2_path = os.path.join(config.metrics_dir, "loss_2_arr.npy")
@@ -143,8 +140,7 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
                     trainset, optimizer, optimizer_1, optimizer_2, \
                     scheduler, scheduler_1, scheduler_2, \
                     config, loss_arr, loss_1_arr, loss_2_arr ,\
-                    loss_d_arr, to_img, netD, \
-                    optimizerD, criterionD):
+                    to_img):
     #  start training...
     model.train()
     running_loss = 0.0
@@ -158,22 +154,17 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
             print('Training {}/{}-th group...'.format(trainIndex, len(trainloader)))
         sys.stdout.flush()
 
-        if config.dataset == "suzanne_exr":
-            rgb_sample, masks, flow, folder, index = trainData
-        elif config.dataset == "blender_cubes" or config.dataset == "SU" or config.dataset == "suzanne" \
-                or re.search("pt", config.dataset) or config.dataset == "all":
-            sample, rgb_sample, folder, index, masks, flow = trainData
+        rgb_sample, masks, flow, folder, index = trainData
 
         #get flow
-        if config.flow_type != None:
-            flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
+        flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
 
-            F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
-            F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
-            F13 = flow_13.float().cuda().to(memory_format=torch.channels_last)
-            F31 = flow_31.float().cuda().to(memory_format=torch.channels_last)
-            F35 = flow_35.float().cuda().to(memory_format=torch.channels_last)
-            F53 = flow_53.float().cuda().to(memory_format=torch.channels_last)
+        F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
+        F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
+        F13 = flow_13.float().cuda().to(memory_format=torch.channels_last)
+        F31 = flow_31.float().cuda().to(memory_format=torch.channels_last)
+        F35 = flow_35.float().cuda().to(memory_format=torch.channels_last)
+        F53 = flow_53.float().cuda().to(memory_format=torch.channels_last)
 
         srcmask = masks[0].cuda().float().to(memory_format=torch.channels_last)
         ibmask = masks[1].cuda().float().to(memory_format=torch.channels_last)
@@ -255,17 +246,15 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
     if scheduler_2 != None:
         scheduler_2.step()
     cur_loss = running_loss / (len(trainloader))
-    cur_d_loss = running_d_loss / (len(trainloader))
     cur_1_loss = running_1_loss / (len(trainloader))
     cur_2_loss = running_2_loss / (len(trainloader))
 
     print("epoch", epoch, "loss", cur_loss, "discrim loss", cur_d_loss)
     loss_arr.append(cur_loss)
-    loss_d_arr.append(cur_d_loss)
     loss_1_arr.append(cur_1_loss)
     loss_2_arr.append(cur_2_loss)
 
-    return loss_arr, loss_d_arr, loss_1_arr, loss_2_arr
+    return loss_arr, loss_1_arr, loss_2_arr
 
 
 def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
@@ -300,21 +289,16 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
             print('Testing {}/{}-th group...'.format(validationIndex, len(testloader)))
             sys.stdout.flush()
 
-            if config.dataset == "suzanne_exr":
-                rgb_sample, masks, flow, folder, index = validationData
-            elif config.dataset == "blender_cubes" or config.dataset == "SU" or config.dataset == "suzanne" \
-                    or re.search("pt", config.dataset) or config.dataset == "all":
-                sample, rgb_sample, folder, index, masks, flow = validationData
+            rgb_sample, masks, flow, folder, index = validationData
 
-            if config.flow_type != None:
-                flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
+            flow_15, flow_51, flow_13, flow_31, flow_35, flow_53 = flow[0]
 
-                F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
-                F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
-                F13 = flow_13.float().cuda().to(memory_format=torch.channels_last)
-                F31 = flow_31.float().cuda().to(memory_format=torch.channels_last)
-                F35 = flow_35.float().cuda().to(memory_format=torch.channels_last)
-                F53 = flow_53.float().cuda().to(memory_format=torch.channels_last)
+            F15 = flow_15.float().cuda().to(memory_format=torch.channels_last)
+            F51 = flow_51.float().cuda().to(memory_format=torch.channels_last)
+            F13 = flow_13.float().cuda().to(memory_format=torch.channels_last)
+            F31 = flow_31.float().cuda().to(memory_format=torch.channels_last)
+            F35 = flow_35.float().cuda().to(memory_format=torch.channels_last)
+            F53 = flow_53.float().cuda().to(memory_format=torch.channels_last)
 
             srcmask = masks[0].cuda().float().to(memory_format=torch.channels_last)
             ibmask = masks[1].cuda().float().to(memory_format=torch.channels_last)
@@ -349,13 +333,12 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
             trgmask_path = os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[-1][0], index[-1][0]+".png")
             save_mask_to_img(srcmask[0].cpu().detach().numpy(), srcmask_path)
             save_mask_to_img(trgmask[0].cpu().detach().numpy(), trgmask_path)
-            if not config.flow_type == None:
-                save_flow_to_img(F15.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F15"), epoch)
-                save_flow_to_img(F51.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F51"), epoch)
-                save_flow_to_img(F13.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F13"), epoch)
-                save_flow_to_img(F53.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53"), epoch)
-                save_flow_to_img(F13_output.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F13_est"), epoch)
-                save_flow_to_img(F53_output.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53_est"), epoch)
+            save_flow_to_img(F15.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F15"), epoch)
+            save_flow_to_img(F51.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F51"), epoch)
+            save_flow_to_img(F13.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F13"), epoch)
+            save_flow_to_img(F53.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53"), epoch)
+            save_flow_to_img(F13_output.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F13_est"), epoch)
+            save_flow_to_img(F53_output.cpu(), os.path.join(config.test_store_path, "epoch_{:03d}".format(epoch), folder[1][0], index[1][0]+"_F53_est"), epoch)
             
             input_cat = torch.cat([decoder_output_1, decoder_output_2], 1)
             outputs, _ = model(input_cat)
@@ -423,90 +406,21 @@ def testing_loop(epoch, model, model_1, model_2, testloader, testset, config, \
 def main(config, args):
     print("tae is goin for it on ig")
 
-    if config.dataset == "atd12k":
-        trainset = datas.AniTripletWithSGMFlow(config.trainset_root, \
-                                                config.train_flow_root, config.hist_mask_root, \
-                                                config.dataset_root_filepath_train, \
-                                                dt=config.dt, raft=config.raft, \
-                                                smooth=config.smooth, \
-                                                img_size=config.test_size, \
-                                                discrim_crop_size=config.discrim_crop_size, \
-                                                patch_location=config.patch_location, \
-                                                random_flip=config.random_flip, \
-                                                random_reverse=config.random_reverse, \
-                                                highmag_flow=config.highmag_flow)
-        testset = datas.AniTripletWithSGMFlowTest(config.testset_root, \
-                                                config.test_flow_root, config.hist_mask_test_root, \
-                                                config.dataset_root_filepath_test, \
-                                                dt=config.dt, raft=config.raft, \
-                                                smooth=config.smooth, \
-                                                img_size=config.test_size, \
-                                                resize=config.test_resize)
-    elif config.dataset == "blender_cubes" or config.dataset == "all" or config.dataset == "SU" or config.dataset == "suzanne":
-        trainset = datas.BlenderAniTripletPatch2(args, config.trainset_root, \
-                                                config.num_ib_frames, \
-                                                config.dataset, \
-                                                img_size=config.test_size, \
-                                                flow_type=config.flow_type, \
-                                                flow_root=config.trainflow_root, \
-                                                csv_root=config.csv_root, \
-                                                random_reverse=config.random_reverse, \
-                                                overfit=config.overfit, \
-                                                small_dataset=config.small_dataset, \
-                                                dt=config.dt, csv=config.csv)
-        testset = datas.BlenderAniTripletPatchTest2(args, config.testset_root, \
-                                                   config.csv_root, \
-                                                   config.num_ib_frames, \
-                                                   config.dataset, \
-                                                   img_size=config.test_size, \
-                                                   resize=config.test_resize, \
-                                                   flow_type=config.flow_type, \
-                                                   flow_root=config.testflow_root, \
-                                                   small_dataset=config.small_dataset, \
-                                                   dt=config.dt)
-    elif config.dataset == "suzanne_exr":
-        trainset = datas.CSVEXRTriplet(config.csv_root, config.trainset_root, config.flow_root, config.num_ib_frames, \
-                                       train=True, img_size=config.test_size, patch_size=config.patch_size, \
-                                       discrim_crop_size=None, random_flip=False, \
-                                       random_reverse=config.random_reverse, dt=config.dt, \
-                                       patch_location=None, overfit=config.overfit)
-        testset = datas.CSVEXRTriplet(config.csv_root, config.testset_root, config.flow_root, config.num_ib_frames, \
-                                       train=False, img_size=config.test_size, patch_size=config.patch_size, \
-                                       discrim_crop_size=None, random_flip=False, \
-                                       random_reverse=config.random_reverse, dt=config.dt, \
-                                       patch_location=None, overfit=config.overfit)
-    elif re.search("pt", config.dataset):
-        trainset = datas.BlenderAniTripletPatch2(args, config.trainset_root, \
-                                                config.num_ib_frames, \
-                                                config.dataset, \
-                                                csv_filename=config.csv_filename, \
-                                                img_size=config.test_size, \
-                                                flow_type=config.flow_type, \
-                                                flow_root=config.trainflow_root, \
-                                                csv_root=config.csv_root, \
-                                                random_reverse=config.random_reverse, \
-                                                overfit=config.overfit, \
-                                                small_dataset=config.small_dataset, \
-                                                dt=config.dt, csv=config.csv)
-        testset = datas.BlenderAniTripletPatchTest2(args, config.testset_root, \
-                                                   config.csv_root, \
-                                                   config.num_ib_frames, \
-                                                   config.dataset, \
-                                                   csv_filename=config.csv_filename,\
-                                                   img_size=config.test_size, \
-                                                   resize=config.test_resize, \
-                                                   flow_type=config.flow_type, \
-                                                   flow_root=config.testflow_root, \
-                                                   small_dataset=config.small_dataset, \
-                                                   dt=config.dt)
-    else:
-        print("something went wrong, check your dataset name")
-        return
-    # sampler = torch.utils.data.RandomSampler(trainset)
-    sampler = torch.utils.data.SequentialSampler(trainset)
+    trainset = datas.AnimTripletWFlow(config.dataset_root, config.flow_root, \
+                                    train=True, img_size=config.img_size, \
+                                    random_reverse=config.random_reverse)
+    testset = datas.AnimTripletWFlow(config.dataset_root, config.flow_root, \
+                                    train=False, img_size=config.img_size, \
+                                    random_reverse=config.random_reverse)
+
+    sampler = torch.utils.data.RandomSampler(trainset)
     test_sampler = torch.utils.data.SequentialSampler(testset)
-    trainloader = torch.utils.data.DataLoader(trainset, sampler=sampler, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
-    testloader = torch.utils.data.DataLoader(testset, sampler=test_sampler, batch_size=config.test_batch_size, shuffle=False, num_workers=config.num_workers)
+    trainloader = torch.utils.data.DataLoader(trainset, sampler=sampler, \
+                                            batch_size=config.batch_size, \
+                                            num_workers=config.num_workers)
+    testloader = torch.utils.data.DataLoader(testset, sampler=test_sampler, \
+                                            batch_size=config.test_batch_size, \
+                                            shuffle=False, num_workers=config.num_workers)
     to_img = transforms.ToPILImage()
  
     sys.stdout.flush()
@@ -586,8 +500,6 @@ def main(config, args):
         epoch_arr = list(epoch_arr)
         loss_arr = np.load(os.path.join(config.metrics_dir, "loss_arr.npy"))
         loss_arr = list(loss_arr)
-        loss_d_arr = np.load(os.path.join(config.metrics_dir, "loss_d_arr.npy"))
-        loss_d_arr = list(loss_d_arr)
         test_epoch_arr = np.load(os.path.join(config.metrics_dir, "test_epoch_arr.npy"))
         test_epoch_arr = list(test_epoch_arr)
         test_loss_arr = np.load(os.path.join(config.metrics_dir, "test_loss_arr.npy"))
@@ -595,7 +507,6 @@ def main(config, args):
     else:
         epoch_arr = []
         loss_arr = []
-        loss_d_arr = []
         loss_1_arr = []
         loss_2_arr = []
 
@@ -608,15 +519,13 @@ def main(config, args):
         print("######### EPOCH", epoch, "##########")
         epoch_arr.append(epoch)
         loss_arr, \
-            loss_d_arr, \
             loss_1_arr, \
             loss_2_arr = training_loop(epoch, model, model_1, \
                                     model_2, trainloader, trainset,\
                                     optimizer, optimizer_1, optimizer_2,\
                                     scheduler, scheduler_1, scheduler_2, \
-                                    config, loss_arr, loss_d_arr,\
-                                    loss_1_arr, loss_2_arr, \
-                                    to_img, netD, optimizerD, criterionD)
+                                    config, loss_arr, loss_1_arr, \
+                                    loss_2_arr, to_img)
         if epoch % 10 == 0:
             test_epoch_arr.append(epoch)
             test_loss_arr, \
@@ -647,12 +556,12 @@ def main(config, args):
             torch.save(model_1.state_dict(), checkpoint_path_1)
             torch.save(model_2.state_dict(), checkpoint_path_2)
         
-        plot_loss(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr, \
+        plot_loss(config, epoch_arr, loss_arr, loss_1_arr, loss_2_arr, test_epoch_arr, test_loss_arr, \
                     test_loss_1_arr, test_loss_2_arr)
-        save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_d_arr, loss_1_arr, loss_2_arr, \
+        save_training_metrics_to_arr(config, epoch_arr, loss_arr, loss_1_arr, loss_2_arr, \
                                     test_epoch_arr, test_loss_arr, test_loss_1_arr, test_loss_2_arr)
         
-    return loss_arr, loss_d_arr
+    return loss_arr
 
 
 if __name__ == "__main__":
@@ -668,7 +577,6 @@ if __name__ == "__main__":
     print("")
     print("######### RESULTS ###########")
     print("LOSS:", loss_arr)
-    print("DISCRIMINATOR LOSS:", loss_d_arr)
     print("#############################")
     print("\a"*2)
 
