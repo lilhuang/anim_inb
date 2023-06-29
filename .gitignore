@@ -7,9 +7,11 @@ DAIN_old
 scripts/logs
 RAFT
 datasets
+new_datasets
 pips
 output_gifs
 wandb
 .vscode
 env*
 **__pycache__
+*.zip
