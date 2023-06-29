@@ -241,6 +241,42 @@ def main_nexus_pencil_tests():
                     result = tv.transforms.functional.to_pil_image((out[0]<0.5).float())
                     result_resized = result.resize(resize_size)
                     result_resized.save(target_png)
+
+
+def main_moving_gif():
+    root = "/fs/cfar-projects/anim_inb/datasets/moving_gif_png/"
+    other_root = "/fs/cfar-projects/anim_inb/datasets/moving_gif_png_dog"
+
+    testroot = os.path.join(root, "test")
+    trainroot = os.path.join(root, "train")
+    outtest = os.path.join(other_root, "test")
+    outtrain = os.path.join(other_root, "train")
+
+    roots = [testroot, trainroot]
+    outroots = [outtest, outtrain]
+    name_regex = "(.*).png"
+    for i, _root in enumerate(roots):
+        all_dirs = os.listdir(_root)
+        for _dir in all_dirs:
+            if _dir == ".DS_Store":
+                continue
+            full_root = os.path.join(_root, _dir)
+            out_root = os.path.join(outroots[i], _dir)
+            if not os.path.exists(out_root):
+                os.makedirs(out_root)
+            all_imgs = os.listdir(full_root)
+            for img in all_imgs:
+                if img == ".DS_Store":
+                    continue
+                path = os.path.join(full_root, img)
+                cur_img = Image.open(path).convert("L")
+                target_png = os.path.join(out_root, img)
+                if not os.path.exists(target_png):
+                    timg = tv.transforms.functional.to_tensor(cur_img)[None,]
+                    out = batch_dog(timg, t=3.0, k=1.5)
+                    result = tv.transforms.functional.to_pil_image((out[0]<0.5).float())
+                    result.save(target_png)
+                    print(target_png)
     
 
     
@@ -251,7 +287,8 @@ if __name__ == "__main__":
     # main()
     # main_nexus_Blender()
     # main_nexus_SU()
-    main_nexus_pencil_tests()
+    # main_nexus_pencil_tests()
+    main_moving_gif()
 
 
 

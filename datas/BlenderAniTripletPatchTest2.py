@@ -27,7 +27,7 @@ def _make_csv_dataset(data_root, csv_root, num_ib_frames, data_source, csv_filen
     flowPath = []
 
     regex_data_source = "pt"
-    if data_source == "all":
+    if data_source == "all" or data_source == "moving_gif":
         csv_filename = "test_triplets.csv"
     elif re.search(regex_data_source, data_source):
         csv_filename = "test"+csv_filename_in
@@ -49,7 +49,10 @@ def _make_csv_dataset(data_root, csv_root, num_ib_frames, data_source, csv_filen
                 # else:
                 #     regex = os.path.join(data_root, "(.*)", "frame_([0-9]+).png")
 
-                if re.search("SU_24fps", src_name):
+                if data_source == "moving_gif":
+                    this_data_root = "/fs/cfar-projects/anim_inb/new_datasets/moving_gif_png_dog/test/"
+                    regex = os.path.join(this_data_root, "(.*)", "frame_([0-9]+).png")
+                elif re.search("SU_24fps", src_name):
                     this_data_root = "/fs/cfar-projects/anim_inb/datasets/SU_24fps/preprocess_dog"
                     regex = os.path.join(this_data_root, "(.*)", "frame([0-9]+).png")
                 else:
@@ -142,6 +145,9 @@ def _flow_loader_npz(filename):
     flows = np.load(filename)
     flo13 = flows["flo13"]
     flo31 = flows["flo31"]
+    if re.search("moving_gif", filename):
+        flo13 = flo13[:,:,140:-140]
+        flo31 = flo31[:,:,140:-140]
     return flo13, flo31
 
 

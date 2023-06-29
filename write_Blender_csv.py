@@ -410,13 +410,61 @@ def main_pencil_tests():
         testcsv.close()
 
 
+def main_moving_gif():
+    root = "/fs/cfar-projects/anim_inb/new_datasets/moving_gif_png_dog"
+    flowroot = "/fs/cfar-projects/anim_inb/pips/generate_flows/flows_moving_gif_dog"
+    csvroot = "/fs/cfar-projects/anim_inb/new_datasets/moving_gif_csvs"
+    
+    if not os.path.exists(csvroot):
+        os.makedirs(csvroot)
+
+    ib = 1
+    regex_frame = "frame_([0-9]+).png"
+    splits = ["test", "train"]
+    for split in splits:
+        splitpath = os.path.join(root, split)
+        all_gifs = os.listdir(splitpath)
+        csvfile = os.path.join(csvroot, split+"_triplets.csv")
+        csv_ = open(csvfile, "w", newline="")
+        writer = csv.writer(csv_, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        for gif in all_gifs:
+            if gif == ".DS_Store":
+                continue
+            fullroot = os.path.join(splitpath, gif)
+            all_frames = os.listdir(fullroot)
+            all_frames.sort()
+            final_ex = all_frames[-1]
+            end = int(re.search(regex_frame, final_ex).group(1))
+
+            for framename in all_frames:
+                print(gif, framename)
+                framenum = re.search(regex_frame, framename).group(1)
+                framenum_int = int(framenum)
+                framenum_end = framenum_int + ib + 1
+                if framenum_end <= end:
+                    ibframe_int = framenum_int + (ib//2) + 1
+
+                    frame1 = os.path.join(fullroot, "frame_{:03d}.png".format(framenum_int))
+                    frame2 = os.path.join(fullroot, "frame_{:03d}.png".format(ibframe_int))
+                    frame3 = os.path.join(fullroot, "frame_{:03d}.png".format(framenum_end))
+
+                    flo_triplet = os.path.join(flowroot, split, gif+"_"+str(ib)+"ib", "frame_{:03d}_to_frame_{:03d}.npz".format(framenum_int, framenum_end))
+                    flo_triplet_2_1 = os.path.join(flowroot, split, gif+"_"+str(ib//2)+"ib", "frame_{:03d}_to_frame_{:03d}.npz".format(framenum_int, ibframe_int))
+                    flo_triplet_2_2 = os.path.join(flowroot, split, gif+"_"+str(ib//2)+"ib", "frame_{:03d}_to_frame_{:03d}.npz".format(ibframe_int, framenum_end))
+
+                    writer.writerow([frame1, frame2, frame3, flo_triplet, flo_triplet_2_1, flo_triplet_2_2])
+        
+        csv_.close()
+
+
 
 
 if __name__ == "__main__":
     # main()
     # main_SU()
     # main_SU_testonly()
-    main_pencil_tests()
+    # main_pencil_tests()
+    main_moving_gif()
 
 
 

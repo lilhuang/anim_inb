@@ -240,7 +240,7 @@ def training_loop(epoch, model, model_1, model_2, trainloader, \
         if config.dataset == "suzanne_exr":
             rgb_sample, masks, flow, folder, index = trainData
         elif config.dataset == "blender_cubes" or config.dataset == "SU" or config.dataset == "suzanne" \
-                or re.search("pt", config.dataset) or config.dataset == "all":
+                or re.search("pt", config.dataset) or config.dataset == "all" or config.dataset == "moving_gif":
             sample, rgb_sample, folder, index, masks, flow = trainData
 
         #get flow
@@ -660,7 +660,8 @@ def main(config, args):
                                                 smooth=config.smooth, \
                                                 img_size=config.test_size, \
                                                 resize=config.test_resize)
-    elif config.dataset == "blender_cubes" or config.dataset == "all" or config.dataset == "SU" or config.dataset == "suzanne":
+    elif config.dataset == "blender_cubes" or config.dataset == "all" or config.dataset == "SU" \
+                or config.dataset == "suzanne" or config.dataset == "moving_gif":
         trainset = datas.BlenderAniTripletPatch2(args, config.trainset_root, \
                                                 config.num_ib_frames, \
                                                 config.dataset, \
