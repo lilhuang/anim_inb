@@ -1,5 +1,6 @@
 outputs
 datasets
+new_datasets
 checkpoints
 scripts/logs
 RAFT

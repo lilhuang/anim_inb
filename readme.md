@@ -1,4 +1,20 @@
-To train:
+DEPENDENCIES:
+
+We ran our code with cuda 11.3.1/cudnn 8.2.1 in Python 3.9.5. For package dependencies, first run:
+
+```pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113```
+
+Then run:
+
+```pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"```
+
+Then finally run:
+
+```pip install -r requirements.txt```
+
+
+
+TO TRAIN:
 
 To run out-of-the-box, make sure your image data is in the following format:
 

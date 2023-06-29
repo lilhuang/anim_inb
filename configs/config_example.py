@@ -1,5 +1,5 @@
-dataset_root = '/fs/cfar-projects/anim_inb/datasets/Suzanne_exr_png_example'
-flow_root = '/fs/cfar-projects/anim_inb/datasets/Suzanne_exr_npz_2stream_flow_example'
+dataset_root = '/fs/cfar-projects/anim_inb/new_datasets/Suzanne_exr_png_example'
+flow_root = '/fs/cfar-projects/anim_inb/new_datasets/Suzanne_exr_npz_2stream_flow_example'
 
 img_size = (2048 ,1024)
 img_resize = None
