@@ -1,12 +1,16 @@
 DEPENDENCIES:
 
-We ran our code with cuda 11.3.1/cudnn 8.2.1 in Python 3.9.5. For package dependencies, first run:
+We ran our code with cuda 11.3.1/cudnn 8.2.1/gcc 11.2.0 in Python 3.9.5. For package dependencies, first run:
 
 ```pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113```
 
 Then run:
 
-```pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"```
+```pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py39_cu113_pyt1110/download.html```
+
+Then run:
+
+```pip install git+https://github.com/S-aiueo32/lpips-pytorch.git```
 
 Then finally run:
 

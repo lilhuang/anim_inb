@@ -35,7 +35,7 @@ from models.discriminator_model.patch_discriminators import Discriminator_1x1_ou
                                                         dcgan_weights_init
 import preprocess
 from pytorch3d.loss import chamfer_distance
-from lpips import lpips
+from lpips_pytorch import lpips
 
 import pdb
 
